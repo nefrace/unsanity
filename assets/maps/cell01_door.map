@@ -1,0 +1,22 @@
+// entity 0
+{
+"classname" "worldspawn"
+"_tb_layer_omit_from_export" "1"
+}
+// entity 1
+{
+"classname" "func_group"
+"_tb_type" "_tb_layer"
+"_tb_name" "Door"
+"_tb_id" "1"
+"_tb_layer_sort_index" "0"
+// brush 0
+{
+( 140 32 96 ) ( 140 -16 96 ) ( 140 -16 0 ) door_industral_02 18.6083 0 0 0.8598313 0.75
+( 140 -16 96 ) ( 148 -16 96 ) ( 148 -16 0 ) door_industral_02 -20 0 0 1 2
+( 148 -16 0 ) ( 148 32 0 ) ( 140 32 0 ) door_industral_02 -20 0 0 1 2
+( 140 32 96 ) ( 148 32 96 ) ( 148 -16 96 ) door_industral_02 -20 0 0 1 2
+( 148 32 0 ) ( 148 32 96 ) ( 140 32 96 ) door_industral_02 -20 0 0 1 2
+( 148 -16 96 ) ( 148 32 96 ) ( 148 32 0 ) door_industral_02 18.6083 0 0 0.8598313 0.75
+}
+}

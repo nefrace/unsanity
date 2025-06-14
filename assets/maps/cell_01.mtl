@@ -1,0 +1,15 @@
+newmtl carpet_tan_01
+map_Kd textures/carpet_tan_01.jpg
+
+newmtl metal_pipe_02
+map_Kd textures/metal_pipe_02.png
+
+newmtl rust_chrome_01
+map_Kd textures/rust_chrome_01.jpg
+
+newmtl tile_clean_tan
+map_Kd textures/tile_clean_tan.png
+
+newmtl wall_halfconcrete_04
+map_Kd textures/wall_halfconcrete_04.png
+

@@ -1,0 +1,7 @@
+# [keys.normal." "."o"] # test2
+# r = ":run-shell-command odin run ."
+# d = ":run-shell-command odin run . -debug"
+
+[keys.normal." ".o]
+c = ":sh odin run src"
+s = ":sh odin run src -o:speed"
