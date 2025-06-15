@@ -21,6 +21,8 @@ Demon :: struct {
 	frame:             f32,
 	rotation:          f32,
 	state:             DemonState,
+	size:              f32,
+	speed:             f32,
 	sound_demon_growl: rl.Sound,
 	sound_demon_dead:  rl.Sound,
 	sound_swing:       rl.Sound,
@@ -69,8 +71,10 @@ demon_spawn :: proc(game: ^Game, position: vec3) -> ^Demon {
 	demon.type = Enemy
 	demon.enemy_type = Demon
 	demon.position = position
-	demon.health = 2
-	demon.radius = 2
+	demon.size = rand.float32_range(0.3, 1.3)
+	demon.health = math.remap_clamped(demon.size, 0.3, 1.3, 0.5, 4)
+	demon.speed = math.remap_clamped(demon.size, 0.3, 1.3, 5.0, 1.0)
+	demon.radius = 2 * demon.size
 	demon.update = demon_update
 	demon.draw = demon_draw
 	demon.game = game
@@ -88,7 +92,7 @@ demon_spawn :: proc(game: ^Game, position: vec3) -> ^Demon {
 demon_update :: proc(enemy: ^Enemy, delta: f32) {
 	using demon := transmute(^Demon)enemy
 	hit_timer = max(hit_timer - delta, 0)
-	frame += 60 * delta
+	frame += 60 * delta * speed
 	overframe := i32(frame) >= demon.animation.frameCount
 
 	diff := game.player.position.xz - position.xz
@@ -104,6 +108,9 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 		frame = 0
 		grid_remove(&game.grid, demon)
 		rl.PlaySound(demon.sound_demon_dead)
+		if rand.float32() < 0.1 && len(pills) < 2 {
+			pill_spawn(position)
+		}
 		animation = demon_animations[7]
 	}
 	switch demon.state {
@@ -114,7 +121,7 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 			frame -= f32(animation.frameCount)
 		}
 		velocity := linalg.normalize(diff) * 3
-		position.xz += velocity * delta
+		position.xz += velocity * delta * speed
 		objects := grid_query_vec2(&game.grid, position.xz, true)
 		for &obj in objects {
 			if obj == demon do continue
@@ -128,7 +135,7 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 				position.xz -= linalg.normalize0(diff) * (dist - radius - obj.radius)
 			}
 		}
-		if dist < radius + game.player.radius + 2 {
+		if dist < radius + game.player.radius + 1 {
 			state = .ATTACK
 			rl.PlaySound(demon.sound_demon_growl)
 			frame = 0
@@ -139,7 +146,7 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 		if i32(frame) >= 50 {
 			if i32(frame) == 50 {
 				rl.PlaySound(demon.sound_swing)
-				if dist < radius + game.player.radius + 3 {
+				if dist < radius + game.player.radius + 2 {
 					game.player.velocity.xz = linalg.normalize0(diff) * 3
 					// rl.CloseWindow()
 					rl.PlaySound(demon.sound_hit)
@@ -179,18 +186,25 @@ demon_draw :: proc(enemy: ^Enemy) {
 	using demon := transmute(^Demon)enemy
 
 	dist := linalg.length2(game.player.position.xz - position.xz)
-	if dist < 400 || health <= 0 {
-		rl.UpdateModelAnimation(demon_model, demon.animation, i32(demon.frame))
-	} else if i32(frame) % 15 == 0 {
-		rl.UpdateModelAnimation(demon_model, demon.animation, i32(demon.frame))
+	// if dist < 400 || health <= 0 {
+	rl.UpdateModelAnimation(demon_model, demon.animation, i32(demon.frame))
+	// } else if i32(frame) % 2 == 0 {
+	// rl.UpdateModelAnimation(demon_model, demon.animation, i32(demon.frame))
 
-	}
+	// }
 
 	color := rl.RED
 	if hit_timer > 0 {
 		color = rl.BLACK
 	}
-	rl.DrawModelEx(demon_model, position, {0, 1, 0}, linalg.to_degrees(rotation) + 90, 0.2, color)
+	rl.DrawModelEx(
+		demon_model,
+		position,
+		{0, 1, 0},
+		linalg.to_degrees(rotation) + 90,
+		0.2 * demon.size,
+		color,
+	)
 	// rl.DrawSphereWires(position + {0, 0.3, 0}, radius, 4, 4, rl.RED)
 
 

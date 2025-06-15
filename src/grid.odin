@@ -42,7 +42,7 @@ grid_clear :: proc(grid: ^Grid) {
 grid_free :: proc(grid: ^Grid) {
 	grid_clear(grid)
 	delete(grid.cells)
-	free(grid)
+	// free(grid)
 }
 
 grid_remove :: proc(grid: ^Grid, object: ^Object) {

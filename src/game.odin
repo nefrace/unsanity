@@ -59,10 +59,11 @@ Game :: struct {
 	campfire:       Campfire,
 	insanity:       f32,
 	timer:          f32,
+	sanity_timer:   f32,
 	spawn_timer:    f32,
 	kills:          int,
 	trees:          [500]Tree,
-	downfall:       [1200]Downfall,
+	downfall:       [800]Downfall,
 	grid:           Grid,
 	models:         map[string]rl.Model,
 	meshes:         map[string]rl.Mesh,
@@ -78,6 +79,7 @@ Game :: struct {
 	eyelids_action: TransitionAction,
 	started:        bool,
 	pause:          bool,
+	music_muted:    bool,
 }
 WorldShader: rl.Shader
 
@@ -102,12 +104,14 @@ game_restart :: proc(using game: ^Game) {
 game_start :: proc(using game: ^Game, is_restart: bool = false) {
 	clear_lights()
 	grid_clear(&grid)
+	pills_clear()
 	ease.flux_clear(&tweens)
 	started = false
 	pause = false
 	game.player = player_spawn(game, {0, 0, -2})
 	game.timer = 0
 	game.insanity = 0
+	game.sanity_timer = 0
 	PosterizerValue = max(math.remap(game.insanity, 0.3, 1, 8.0, 2.0), 3)
 	game.spawn_timer = 0
 	// game.eyelids_closed = 0
@@ -136,9 +140,9 @@ game_start :: proc(using game: ^Game, is_restart: bool = false) {
 
 	for &downfall in game.downfall {
 		downfall.position = {
-			rand.float32_range(-30, 30),
+			rand.float32_range(-20, 20),
 			rand.float32_range(0, 15),
-			rand.float32_range(-30, 30),
+			rand.float32_range(-20, 20),
 		}
 
 		downfall.type = .Snow
@@ -148,6 +152,12 @@ game_start :: proc(using game: ^Game, is_restart: bool = false) {
 	rl.SetMusicVolume(game.music["rain"], insanity * 1.5)
 	rl.SetMusicVolume(game.music["wind"], 1 - insanity)
 	rl.SetMusicVolume(game.music["crazy_ambient"], insanity * 0.8)
+
+
+	// for i := 0; i < 10; i += 1 {
+	// 	pill_spawn({rand.float32_range(-30, 30), 0, rand.float32_range(-30, 30)})
+	// }
+
 
 }
 
@@ -161,6 +171,7 @@ game_init :: proc() -> ^Game {
 	grid_init(&game.grid)
 	player_init()
 	demon_init_resourecs()
+	pills_init()
 
 	game.meshes["plane"] = rl.GenMeshPlane(500, 500, 250, 250)
 	game.materials["planemat"] = rl.LoadMaterialDefault()
@@ -179,6 +190,7 @@ game_init :: proc() -> ^Game {
 	rl.PlayMusicStream(game.music["rain"])
 	game.music["crazy_ambient"] = rl.LoadMusicStream("assets/sfx/crazy_ambient.ogg")
 	rl.PlayMusicStream(game.music["crazy_ambient"])
+	game.music["nbtf"] = rl.LoadMusicStream("assets/sfx/NBTF2.ogg")
 
 	pixelImg := rl.GenImageColor(1, 1, rl.WHITE)
 	defer rl.UnloadImage(pixelImg)
@@ -216,6 +228,9 @@ game_update :: proc(using game: ^Game, delta: f32) {
 	rl.UpdateMusicStream(game.music["camp"])
 	rl.UpdateMusicStream(game.music["rain"])
 	rl.UpdateMusicStream(game.music["crazy_ambient"])
+	if started && !music_muted {
+		rl.UpdateMusicStream(game.music["nbtf"])
+	}
 
 
 	if eyelids_speed != 0 {
@@ -236,8 +251,17 @@ game_update :: proc(using game: ^Game, delta: f32) {
 		}
 	}
 
+	if rl.IsKeyPressed(.M) {
+		music_muted = !music_muted
+		if music_muted {
+			rl.StopMusicStream(music["nbtf"])
+		} else {
+			rl.PlayMusicStream(music["nbtf"])
+		}
+	}
+
 	if rl.IsKeyPressed(.ESCAPE) {
-		if started {
+		if started && !player.is_dead {
 			pause = !pause
 			if pause {
 				rl.EnableCursor()
@@ -268,13 +292,13 @@ game_update :: proc(using game: ^Game, delta: f32) {
 		case .Bloodrain:
 			downfall.y -= delta * 25
 		}
-		if dist > 900 {
-			downfall.position.xz -= linalg.normalize(diff.xz) * 60
+		if dist > 400 {
+			downfall.position.xz -= linalg.normalize(diff.xz) * 40
 		}
 		if downfall.y < 0 {
 			downfall.position.xz = vec2 {
-				rand.float32_range(player.position.x - 30, player.position.x + 30),
-				rand.float32_range(player.position.z - 30, player.position.z + 30),
+				rand.float32_range(player.position.x - 20, player.position.x + 20),
+				rand.float32_range(player.position.z - 20, player.position.z + 20),
 			}
 			downfall.y = 15
 			if rand.float32() < game.insanity {
@@ -301,22 +325,26 @@ game_update :: proc(using game: ^Game, delta: f32) {
 			_ = ease.flux_to(&tweens, &player.cam_height, 1.7)
 			_ = ease.flux_to(&tweens, &player.gun_down, 0)
 			rl.DisableCursor()
+			if !music_muted do rl.PlayMusicStream(music["nbtf"])
+
 			// rl.PollInputEvents()
 		}
 
 		return
 	}
-	timer += delta
 	player_update(&game.player, delta)
 	if player.is_dead do return
+	timer += delta
+	sanity_timer += delta
 
 	// if timer > 5 {
 	diff := player.position - campfire.position
 	dist: f32 = linalg.length(diff)
-	c: f32 =
-		-linalg.smoothstep(f32(5.0), f32(1.0), dist) * 0.2 +
-		linalg.smoothstep(f32(5.0), f32(25.0), dist)
-	game.insanity = clamp(game.insanity + 0.04 * c * delta, 0, 1)
+	near_campfire := linalg.smoothstep(f32(5), f32(1), dist) * 0.01
+	far_campfire := linalg.smoothstep(f32(5.0), f32(25.0), dist) * 0.01
+	time_factor := linalg.smoothstep(f32(10), f32(30), sanity_timer) * 0.01
+	c: f32 = -near_campfire + far_campfire + time_factor
+	game.insanity = clamp(game.insanity + c * delta, 0, 1)
 	if game.insanity >= 1 {
 		player.is_crazy = true
 		player_die(&player, sound_crazy)
@@ -324,6 +352,7 @@ game_update :: proc(using game: ^Game, delta: f32) {
 	rl.SetMusicVolume(game.music["camp"], linalg.smoothstep(f32(20), f32(2), dist))
 	rl.SetMusicVolume(game.music["rain"], insanity * 1.5)
 	rl.SetMusicVolume(game.music["wind"], 1 - insanity)
+	rl.SetMusicVolume(game.music["nbtf"], 1 - insanity)
 	rl.SetMusicVolume(game.music["crazy_ambient"], insanity * 0.8)
 	// }
 	spawn_timer += delta
@@ -333,7 +362,7 @@ game_update :: proc(using game: ^Game, delta: f32) {
 			demon_spawn(
 				game,
 				player.position +
-				rl.Vector3RotateByAxisAngle({30, 0, 0}, {0, 1, 0}, rand.float32_range(0, 360)),
+				rl.Vector3RotateByAxisAngle({20, 0, 0}, {0, 1, 0}, rand.float32_range(0, 360)),
 			)
 
 		}
@@ -344,6 +373,9 @@ game_update :: proc(using game: ^Game, delta: f32) {
 	playerangle := linalg.vector_normalize(player.cam.target - player.cam.position)
 
 
+	#reverse for &pill in pills {
+		pill_update(&pill, delta)
+	}
 	#reverse for &enemy in enemy_list {
 		enemy->update(delta)
 	}
@@ -363,7 +395,7 @@ game_update :: proc(using game: ^Game, delta: f32) {
 
 game_use_pill :: proc(using game: ^Game) {
 	insanity = 0.0
-	timer = 0.0
+	sanity_timer = 0.0
 
 	for &df in downfall {
 		df.type = .Snow
@@ -424,9 +456,13 @@ game_draw :: proc(using game: ^Game) {
 
 	for &enemy in enemy_list {
 		diff := enemy.position - game.player.cam.position
-		if linalg.length2(diff) > 1600 do continue
+		if linalg.length2(diff) > 400 do continue
 		// if linalg.vector_dot(diff, playerangle) < 0 do continue
 		enemy->draw()
+	}
+
+	for &pill in pills {
+		pill_draw(&pill)
 	}
 
 
@@ -460,7 +496,7 @@ game_draw :: proc(using game: ^Game) {
 			)
 		}
 		if !started {
-			draw_text_centered("UnSanity", {GameSizeF.x / 2, 30}, 30, 3, rl.WHITE)
+			draw_text_centered("UnSanity", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
 			draw_text_centered(
 				"НАЖМИТЕ [ОГОНЬ] ЧТОБЫ НАЧАТЬ\nИЛИ [ESCAPE] ЧТОБЫ ВЫЙТИ",
 				GameSizeF / 2,
@@ -470,7 +506,7 @@ game_draw :: proc(using game: ^Game) {
 			)
 		}
 		if pause {
-			draw_text_centered("ПАУЗА", {GameSizeF.x / 2, 30}, 30, 3, rl.WHITE)
+			draw_text_centered("ПАУЗА", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
 			draw_text_centered(
 				"НАЖМИТЕ [ESCAPE] ЧТОБЫ ПРОДОЛЖИТЬ\n[R] ДЛЯ РЕСТАРТА\n[Q] ЧТОБЫ ВЫЙТИ",
 				GameSizeF / 2,
@@ -495,6 +531,18 @@ game_draw :: proc(using game: ^Game) {
 			16,
 			1,
 			color,
+		)
+	}
+	if started {
+		total_seconds := i32(timer)
+		minutes := total_seconds / 60
+		seconds := total_seconds % 60
+		draw_text_centered(
+			fmt.ctprintf("%02d:%02d", minutes, seconds),
+			{GameSizeF.x / 2, 30},
+			16,
+			3,
+			rl.WHITE,
 		)
 	}
 
@@ -553,6 +601,7 @@ game_free :: proc(game: ^Game) {
 	demon_free_resources()
 	ease.flux_destroy(game.tweens)
 	player_free()
+	pills_free()
 
 
 	// rl.UnloadShader(WorldShader)

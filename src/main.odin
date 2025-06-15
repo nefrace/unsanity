@@ -68,7 +68,7 @@ init_codepoints :: proc() {
 
 main :: proc() {
 	init_codepoints()
-	rl.SetConfigFlags({.WINDOW_RESIZABLE})
+	rl.SetConfigFlags({.WINDOW_RESIZABLE, .VSYNC_HINT})
 	// rl.SetTargetFPS(10)
 
 	rl.InitWindow(1200, 800, "UnSanity")

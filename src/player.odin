@@ -49,7 +49,9 @@ player_init :: proc() {
 	step_sounds[0] = rl.LoadSound("assets/sfx/step1.ogg")
 	step_sounds[1] = rl.LoadSound("assets/sfx/step2.ogg")
 	sound_shoot = rl.LoadSound("assets/sfx/shoot.ogg")
+	rl.SetSoundVolume(sound_shoot, 0.5)
 	sound_reload = rl.LoadSound("assets/sfx/reload.ogg")
+	rl.SetSoundVolume(sound_reload, 0.5)
 	sound_death = rl.LoadSound("assets/sfx/death.ogg")
 	sound_crazy = rl.LoadSound("assets/sfx/crazy.ogg")
 }
@@ -92,6 +94,7 @@ player_die :: proc(using player: ^Player, sound: rl.Sound = sound_death) {
 	is_dead = true
 	rl.EnableCursor()
 	rl.PlaySound(sound_death)
+	rl.StopMusicStream(game.music["nbtf"])
 
 }
 
@@ -180,7 +183,6 @@ player_update :: proc(using player: ^Player, delta: f32) {
 			diff := position.xz - obj.position.xz
 			dist := linalg.length(diff)
 			if dist < obj.radius + radius {
-				fmt.println("COLLIDING WITH", obj.type, obj.position, obj.radius)
 				position.xz -= linalg.normalize(diff) * (dist - radius - obj.radius)
 			}
 		}
@@ -189,6 +191,17 @@ player_update :: proc(using player: ^Player, delta: f32) {
 			if rl.IsMouseButtonPressed(.LEFT) {
 				game_restart(game)
 			}
+		}
+	}
+	for &pill in pills {
+		diff := position.xz - pill.position.xz
+		dist: f32 = linalg.length(diff)
+		if dist < 1 {
+			pill_destroy(&pill)
+			rl.PlaySound(pill_sound)
+			game.eyelids_speed = 5
+			game.eyelids_action = .PILLS
+			break
 		}
 	}
 	cam.up = rl.Vector3Normalize({0 + camera_tilt, 1 + camera_tilt, 0})
