@@ -1,3 +1,21 @@
   Textures:
 - Classic 64 Asset pack: https://craigsnedeker.itch.io/classic64-asset-library
 
+  Models:
+- Ultra low poly revolver: https://opengameart.org/content/ultra-low-poly-revolver 
+
+  Sounds:
+- Wet snow steps: https://opengameart.org/content/9-wet-snow-steps
+- Wind sound: https://opengameart.org/content/wind1
+- Revolver Reload: https://www.youtube.com/watch?v=Igym4-KVFPc
+- Revolver shot: https://opengameart.org/content/light-machine-gun
+- Melee sounds: https://opengameart.org/content/3-melee-sounds
+- Hurt: https://opengameart.org/content/punches-hits-swords-and-squishes
+- Death: https://opengameart.org/content/hurt-death-sound-effect-for-character
+- Demon: https://opengameart.org/content/rpg-sound-pack
+- Campfire: https://opengameart.org/content/fireplace-sound-loop
+- Rain: https://opengameart.org/content/nature-sounds-pack
+- https://opengameart.org/content/30-cc0-sfx-loops
+
+  Fonts:
+- https://ggbot.itch.io/home-video-font

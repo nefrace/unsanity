@@ -53,6 +53,7 @@ light_new :: proc(
 }
 
 light_destroy :: proc(light: ^Light) {
+	if light.enabled == 0 do return
 	light.enabled = 0
 	light.used = false
 	light_update_uniforms(light)
@@ -91,6 +92,12 @@ light_update_uniforms :: proc(light: ^Light) {
 move_light :: proc(light: ^Light, pos: [3]f32) {
 	light.position = pos
 	rl.SetShaderValue(light.shader^, light.positionLoc, &(light.position), .VEC3)
+}
+
+clear_lights :: proc() {
+	for &light in lights {
+		light_destroy(&light)
+	}
 }
 
 MAX_LIGHTS :: 32

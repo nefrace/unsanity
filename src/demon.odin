@@ -8,16 +8,6 @@ import "core:math/rand"
 import "core:slice"
 import rl "vendor:raylib"
 
-Enemy :: struct {
-	game:       ^Game,
-	position:   vec3,
-	radius:     f32,
-	health:     f32,
-	dead_timer: f32,
-	active:     bool,
-	update:     proc(enemy: ^Enemy, delta: f32),
-	draw:       proc(enemy: ^Enemy),
-}
 
 DemonState :: enum {
 	CHASE,
@@ -26,31 +16,33 @@ DemonState :: enum {
 }
 
 Demon :: struct {
-	using enemy: Enemy,
-	animation:   rl.ModelAnimation,
-	frame:       f32,
-	rotation:    f32,
-	state:       DemonState,
+	using enemy:       Enemy,
+	animation:         rl.ModelAnimation,
+	frame:             f32,
+	rotation:          f32,
+	state:             DemonState,
+	sound_demon_growl: rl.Sound,
+	sound_demon_dead:  rl.Sound,
+	sound_swing:       rl.Sound,
+	sound_hit:         rl.Sound,
 }
-
-enemy_list: [dynamic]^Enemy
-
-clear_enemies :: proc() {
-	for &enemy in enemy_list {
-
-		free(enemy)
-	}
-	clear(&enemy_list)
-}
-
-EnemyShader: rl.Shader
 
 demon_model: rl.Model
 demon_animations: []rl.ModelAnimation
+sound_demon_growl: rl.Sound
+sound_demon_dead: rl.Sound
+sound_swing: rl.Sound
+sound_hit: rl.Sound
 
 demon_init_resourecs :: proc() {
 	// EnemyShader = rl.LoadShader(none, "assets/shaders/fshader_blooded.glsl")
 	// EnemyShader = rl.LoadShader(nil, "assets/shaders/fshader.glsl")
+
+	sound_demon_growl = rl.LoadSound("assets/sfx/demon_attack.ogg")
+	sound_demon_dead = rl.LoadSound("assets/sfx/demon_dead.ogg")
+	sound_swing = rl.LoadSound("assets/sfx/swing.ogg")
+	sound_hit = rl.LoadSound("assets/sfx/hurt.ogg")
+
 	demon_path :: "assets/models/monsterg.glb"
 	demon_model = rl.LoadModel(demon_path)
 	set_model_shader(&demon_model, WorldShader)
@@ -66,13 +58,18 @@ demon_init_resourecs :: proc() {
 demon_free_resources :: proc() {
 	rl.UnloadModelAnimations(raw_data(demon_animations), i32(len(demon_animations)))
 	rl.UnloadModel(demon_model)
+	rl.UnloadSound(sound_demon_growl)
+	rl.UnloadSound(sound_demon_dead)
+	rl.UnloadSound(sound_swing)
+	rl.UnloadSound(sound_hit)
 }
 
 demon_spawn :: proc(game: ^Game, position: vec3) -> ^Demon {
 	demon := new(Demon)
+	demon.type = Enemy
+	demon.enemy_type = Demon
 	demon.position = position
-	demon.health = 5
-	demon.active = true
+	demon.health = 2
 	demon.radius = 2
 	demon.update = demon_update
 	demon.draw = demon_draw
@@ -80,55 +77,74 @@ demon_spawn :: proc(game: ^Game, position: vec3) -> ^Demon {
 	demon.state = .CHASE
 	demon.animation = demon_animations[5]
 	demon.frame = rand.float32_range(0, 5000)
+	demon.sound_demon_growl = rl.LoadSoundAlias(sound_demon_growl)
+	demon.sound_demon_dead = rl.LoadSoundAlias(sound_demon_dead)
+	demon.sound_swing = rl.LoadSoundAlias(sound_swing)
+	demon.sound_hit = rl.LoadSoundAlias(sound_hit)
 	append(&enemy_list, demon)
 	return demon
 }
 
 demon_update :: proc(enemy: ^Enemy, delta: f32) {
 	using demon := transmute(^Demon)enemy
+	hit_timer = max(hit_timer - delta, 0)
 	frame += 60 * delta
 	overframe := i32(frame) >= demon.animation.frameCount
 
 	diff := game.player.position.xz - position.xz
 	dist := linalg.length(diff)
+	volume := linalg.smoothstep(f32(20), f32(0), dist)
+	rl.SetSoundVolume(demon.sound_demon_growl, volume)
+	rl.SetSoundVolume(demon.sound_demon_dead, volume)
+	rl.SetSoundVolume(demon.sound_swing, volume)
+	rl.SetSoundVolume(demon.sound_hit, volume)
+
 	if health <= 0 && state != .DEAD {
 		state = .DEAD
 		frame = 0
+		grid_remove(&game.grid, demon)
+		rl.PlaySound(demon.sound_demon_dead)
 		animation = demon_animations[7]
 	}
 	switch demon.state {
 	case .CHASE:
+		grid_remove(&game.grid, demon)
+		defer grid_add(&game.grid, demon)
 		if overframe {
 			frame -= f32(animation.frameCount)
 		}
 		velocity := linalg.normalize(diff) * 3
 		position.xz += velocity * delta
-		for &solid in game.solids {
-			diff := position.xz - solid.position.xz
-			dist := linalg.length(diff)
-			if dist < solid.radius + radius {
-				position.xz -= linalg.normalize0(diff) * (dist - radius - solid.radius)
+		objects := grid_query_vec2(&game.grid, position.xz, true)
+		for &obj in objects {
+			if obj == demon do continue
+			if obj.type == Demon {
+				demon := transmute(^Enemy)obj
+				if demon.health <= 0 do continue
 			}
-		}
-		for &solid in enemy_list {
-			if solid == demon do continue
-			if solid.health <= 0 do continue
-			diff := position.xz - solid.position.xz
+			diff := position.xz - obj.position.xz
 			dist := linalg.length(diff)
-			if dist < solid.radius + radius {
-				position.xz -= linalg.normalize0(diff) * (dist - radius - solid.radius)
+			if dist < obj.radius + radius {
+				position.xz -= linalg.normalize0(diff) * (dist - radius - obj.radius)
 			}
 		}
 		if dist < radius + game.player.radius + 2 {
 			state = .ATTACK
+			rl.PlaySound(demon.sound_demon_growl)
 			frame = 0
 			animation = demon_animations[6]
 		}
 		rotation = -linalg.atan2(diff.y, diff.x)
 	case .ATTACK:
 		if i32(frame) >= 50 {
-			if i32(frame) == 50 && dist < radius + game.player.radius + 3 {
-				game.player.velocity.xz = linalg.normalize0(diff) * 3
+			if i32(frame) == 50 {
+				rl.PlaySound(demon.sound_swing)
+				if dist < radius + game.player.radius + 3 {
+					game.player.velocity.xz = linalg.normalize0(diff) * 3
+					// rl.CloseWindow()
+					rl.PlaySound(demon.sound_hit)
+					player_die(&game.player)
+				}
 			}
 		} else {
 			rotation = -linalg.atan2(diff.y, diff.x)
@@ -139,6 +155,13 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 			animation = demon_animations[5]
 		}
 	case .DEAD:
+		dead_timer += delta
+		if dead_timer > 10 {
+			position.y -= 0.5 * delta
+			if position.y <= -1 {
+				enemy_free(demon)
+			}
+		}
 		if overframe {
 			frame = f32(animation.frameCount) - 1
 		}
@@ -155,9 +178,19 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 demon_draw :: proc(enemy: ^Enemy) {
 	using demon := transmute(^Demon)enemy
 
-	rl.UpdateModelAnimation(demon_model, demon.animation, i32(demon.frame))
+	dist := linalg.length2(game.player.position.xz - position.xz)
+	if dist < 400 || health <= 0 {
+		rl.UpdateModelAnimation(demon_model, demon.animation, i32(demon.frame))
+	} else if i32(frame) % 15 == 0 {
+		rl.UpdateModelAnimation(demon_model, demon.animation, i32(demon.frame))
 
-	rl.DrawModelEx(demon_model, position, {0, 1, 0}, linalg.to_degrees(rotation) + 90, 0.2, rl.RED)
+	}
+
+	color := rl.RED
+	if hit_timer > 0 {
+		color = rl.BLACK
+	}
+	rl.DrawModelEx(demon_model, position, {0, 1, 0}, linalg.to_degrees(rotation) + 90, 0.2, color)
 	// rl.DrawSphereWires(position + {0, 0.3, 0}, radius, 4, 4, rl.RED)
 
 

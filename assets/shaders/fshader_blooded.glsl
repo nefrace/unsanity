@@ -62,7 +62,7 @@ void main()
          
             }
         }  
-        if (colDiffuse.g > 0.5) {
+        if (colDiffuse.g > 0.9) {
             bloodColor.gb = vec2(0.0);
             // float mixing = bloodColor.r - (1 - insanity);
             // float mixing = insanity;
