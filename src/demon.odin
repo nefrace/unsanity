@@ -31,6 +31,7 @@ Demon :: struct {
 
 demon_model: rl.Model
 demon_animations: []rl.ModelAnimation
+demon_animations_named: map[string]rl.ModelAnimation
 sound_demon_growl: rl.Sound
 sound_demon_dead: rl.Sound
 sound_swing: rl.Sound
@@ -45,7 +46,7 @@ demon_init_resourecs :: proc() {
 	sound_swing = rl.LoadSound("assets/sfx/swing.ogg")
 	sound_hit = rl.LoadSound("assets/sfx/hurt.ogg")
 
-	demon_path :: "assets/models/monsterg.glb"
+	demon_path :: "assets/models/monsterc.glb"
 	demon_model = rl.LoadModel(demon_path)
 	set_model_shader(&demon_model, WorldShader)
 	animation_count: i32 = 0
@@ -54,6 +55,9 @@ demon_init_resourecs :: proc() {
 	for &animation, i in demon_animations {
 		valid := rl.IsModelAnimationValid(demon_model, animation)
 		fmt.printf("DEMON ANIMATION %d, %b, %s\n", i, valid, animation.name)
+		if valid {
+			demon_animations_named[string(animation.name[:])] = animation
+		}
 	}
 }
 
@@ -79,7 +83,7 @@ demon_spawn :: proc(game: ^Game, position: vec3) -> ^Demon {
 	demon.draw = demon_draw
 	demon.game = game
 	demon.state = .CHASE
-	demon.animation = demon_animations[5]
+	demon.animation = demon_animations[7]
 	demon.frame = rand.float32_range(0, 5000)
 	demon.sound_demon_growl = rl.LoadSoundAlias(sound_demon_growl)
 	demon.sound_demon_dead = rl.LoadSoundAlias(sound_demon_dead)
@@ -111,7 +115,7 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 		if rand.float32() < 0.1 && len(pills) < 2 {
 			pill_spawn(position)
 		}
-		animation = demon_animations[7]
+		animation = demon_animations[5]
 	}
 	switch demon.state {
 	case .CHASE:
@@ -139,7 +143,7 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 			state = .ATTACK
 			rl.PlaySound(demon.sound_demon_growl)
 			frame = 0
-			animation = demon_animations[6]
+			animation = demon_animations[4]
 		}
 		rotation = -linalg.atan2(diff.y, diff.x)
 	case .ATTACK:
@@ -159,7 +163,7 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 		if overframe {
 			frame = 0
 			state = .CHASE
-			animation = demon_animations[5]
+			animation = demon_animations[7]
 		}
 	case .DEAD:
 		dead_timer += delta
