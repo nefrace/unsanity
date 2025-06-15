@@ -84,6 +84,8 @@ Game :: struct {
 }
 WorldShader: rl.Shader
 
+drawinterface := true
+
 game_load_model :: proc(game: ^Game, name: string, file: cstring) -> ^rl.Model {
 	path := fmt.ctprintf("assets/models/%s", file)
 	game.models[name] = rl.LoadModel(path)
@@ -482,104 +484,106 @@ game_draw :: proc(using game: ^Game) {
 
 	rl.EndMode3D()
 
-	text: cstring
-	dimensions: vec2
-	if !player.is_dead {
-		if started && !pause {
-			rl.DrawCircleLines(GameSize.x / 2, GameSize.y / 2, 5, rl.WHITE)
-			text = fmt.ctprintf("БЕЗУМИЕ: %3.1f%%", insanity * 100)
-			dimensions := rl.MeasureTextEx(UIFont, text, 20, 1)
-			pos := vec2{10, f32(GameSize.y) - dimensions.y - 10}
-			rl.DrawRectangleV(pos, dimensions, rl.BLACK)
-			rl.DrawRectangleV(pos, {dimensions.x * game.insanity, dimensions.y}, rl.RED)
-			rl.DrawTextEx(UIFont, text, pos, 20, 1, rl.WHITE)
-			if player.reload_timer > 0 {
-				text = "ПЕРЕЗАРЯДКА..."
-			} else {
-				text = fmt.ctprintf("%d / 6", player.ammo)
+	if rl.IsKeyPressed(.F2) do drawinterface = !drawinterface
+	if drawinterface {
+		text: cstring
+		dimensions: vec2
+		if !player.is_dead {
+			if started && !pause {
+				rl.DrawCircleLines(GameSize.x / 2, GameSize.y / 2, 5, rl.WHITE)
+				text = fmt.ctprintf("БЕЗУМИЕ: %3.1f%%", insanity * 100)
+				dimensions := rl.MeasureTextEx(UIFont, text, 20, 1)
+				pos := vec2{10, f32(GameSize.y) - dimensions.y - 10}
+				rl.DrawRectangleV(pos, dimensions, rl.BLACK)
+				rl.DrawRectangleV(pos, {dimensions.x * game.insanity, dimensions.y}, rl.RED)
+				rl.DrawTextEx(UIFont, text, pos, 20, 1, rl.WHITE)
+				if player.reload_timer > 0 {
+					text = "ПЕРЕЗАРЯДКА..."
+				} else {
+					text = fmt.ctprintf("%d / 6", player.ammo)
+				}
+				dimensions = rl.MeasureTextEx(UIFont, text, 20, 1)
+				pos = {f32(GameSize.x) - dimensions.x - 10, f32(GameSize.y) - dimensions.y - 10}
+				rl.DrawRectangleV(pos, dimensions, rl.BLACK)
+				rl.DrawTextEx(UIFont, text, pos, 20, 1, rl.WHITE)
 			}
-			dimensions = rl.MeasureTextEx(UIFont, text, 20, 1)
-			pos = {f32(GameSize.x) - dimensions.x - 10, f32(GameSize.y) - dimensions.y - 10}
-			rl.DrawRectangleV(pos, dimensions, rl.BLACK)
-			rl.DrawTextEx(UIFont, text, pos, 20, 1, rl.WHITE)
-		}
-		if !started {
-			draw_text_centered("UnSanity", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
-			draw_text_centered(
-				"НАЖМИТЕ [ОГОНЬ] ЧТОБЫ НАЧАТЬ\nИЛИ [ESCAPE] ЧТОБЫ ВЫЙТИ",
-				GameSizeF / 2,
-				20,
-				1,
-				rl.WHITE,
-			)
-
-			if game.highscore.shots > 0 {
-				hit_rate := f32(game.highscore.hits) / f32(game.highscore.shots) * 100
-				text := fmt.ctprintf(
-					"рекорд времени: %02d:%02d\nрекорд убийств: %d\nсделано выстрелов: %d\nточность: %.0f%%\nтаблеток выпито: %d\nсмертей: %d\nбезумий: %d",
-					game.highscore.seconds / 60,
-					game.highscore.seconds % 60,
-					game.highscore.kills,
-					game.highscore.shots,
-					hit_rate,
-					game.highscore.pills,
-					game.highscore.death_count,
-					game.highscore.crazy_count,
+			if !started {
+				draw_text_centered("UnSanity", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
+				draw_text_centered(
+					"НАЖМИТЕ [ОГОНЬ] ЧТОБЫ НАЧАТЬ\nИЛИ [ESCAPE] ЧТОБЫ ВЫЙТИ",
+					GameSizeF / 2,
+					20,
+					1,
+					rl.WHITE,
 				)
-				dimensions := rl.MeasureTextEx(UIFont, text, 14, 1)
-				rl.DrawTextEx(UIFont, text, {10, GameSizeF.y - dimensions.y}, 14, 1, rl.BLACK)
+
+				if game.highscore.shots > 0 {
+					hit_rate := f32(game.highscore.hits) / f32(game.highscore.shots) * 100
+					text := fmt.ctprintf(
+						"рекорд времени: %02d:%02d\nрекорд убийств: %d\nсделано выстрелов: %d\nточность: %.0f%%\nтаблеток выпито: %d\nсмертей: %d\nбезумий: %d",
+						game.highscore.seconds / 60,
+						game.highscore.seconds % 60,
+						game.highscore.kills,
+						game.highscore.shots,
+						hit_rate,
+						game.highscore.pills,
+						game.highscore.death_count,
+						game.highscore.crazy_count,
+					)
+					dimensions := rl.MeasureTextEx(UIFont, text, 14, 1)
+					rl.DrawTextEx(UIFont, text, {10, GameSizeF.y - dimensions.y}, 14, 1, rl.BLACK)
+				}
 			}
-		}
-		if pause {
-			draw_text_centered("ПАУЗА", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
+			if pause {
+				draw_text_centered("ПАУЗА", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
+				draw_text_centered(
+					"НАЖМИТЕ [ESCAPE] ЧТОБЫ ПРОДОЛЖИТЬ\n[R] ДЛЯ РЕСТАРТА\n[Q] ЧТОБЫ ВЫЙТИ",
+					GameSizeF / 2,
+					20,
+					1,
+					rl.WHITE,
+				)
+
+			}
+		} else {
+			color := rl.RED
+			text = "ВЫ МЕРТВЫ"
+			if player.is_crazy {
+				color = rl.WHITE
+				text = "ВЫ СОШЛИ С УМА"
+			}
+			draw_text_centered(text, GameSizeF / 2, 30, 2, color)
+
 			draw_text_centered(
-				"НАЖМИТЕ [ESCAPE] ЧТОБЫ ПРОДОЛЖИТЬ\n[R] ДЛЯ РЕСТАРТА\n[Q] ЧТОБЫ ВЫЙТИ",
-				GameSizeF / 2,
-				20,
+				"НАЖМИТЕ [ОГОНЬ] ЧТОБЫ ПРОСНУТЬСЯ",
+				{GameSizeF.x / 2, GameSizeF.y - 20},
+				16,
 				1,
-				rl.WHITE,
+				color,
 			)
-
 		}
-	} else {
-		color := rl.RED
-		text = "ВЫ МЕРТВЫ"
-		if player.is_crazy {
-			color = rl.WHITE
-			text = "ВЫ СОШЛИ С УМА"
-		}
-		draw_text_centered(text, GameSizeF / 2, 30, 2, color)
-
-		draw_text_centered(
-			"НАЖМИТЕ [ОГОНЬ] ЧТОБЫ ПРОСНУТЬСЯ",
-			{GameSizeF.x / 2, GameSizeF.y - 20},
-			16,
-			1,
-			color,
-		)
-	}
-	if started {
-		total_seconds := i32(timer)
-		minutes := total_seconds / 60
-		seconds := total_seconds % 60
-		draw_text_centered(
-			fmt.ctprintf("%02d:%02d", minutes, seconds),
-			{GameSizeF.x / 2, 30},
-			16,
-			1,
-			rl.WHITE,
-		)
-		if player.is_dead {
+		if started {
+			total_seconds := i32(timer)
+			minutes := total_seconds / 60
+			seconds := total_seconds % 60
 			draw_text_centered(
-				fmt.ctprintf("Убито: %d", kills),
-				{GameSizeF.x / 2, 60},
+				fmt.ctprintf("%02d:%02d", minutes, seconds),
+				{GameSizeF.x / 2, 30},
 				16,
 				1,
 				rl.WHITE,
 			)
+			if player.is_dead {
+				draw_text_centered(
+					fmt.ctprintf("Убито: %d", kills),
+					{GameSizeF.x / 2, 60},
+					16,
+					1,
+					rl.WHITE,
+				)
+			}
 		}
 	}
-
 	rl.DrawRectangleV({}, {f32(GameSize.x), f32(GameSize.y) / 2 * eyelids_closed}, rl.BLACK)
 	rl.DrawRectangleV(
 		{0, f32(GameSize.y) - f32(GameSize.y) / 2 * eyelids_closed},
