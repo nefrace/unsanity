@@ -12,6 +12,7 @@ FireParticle :: struct {
 	velocity: vec3,
 	size:     f32,
 	lifetime: f32,
+	max_time: f32,
 	color:    rl.Color,
 }
 Campfire :: struct {
@@ -39,6 +40,7 @@ spawn_campfire :: proc(game: ^Game, pos: vec3) -> ^Campfire {
 			rand.float32_range(cf.position.z - cf.radius * 0.8, cf.position.z + cf.radius * 0.8),
 		}
 		fire.lifetime = rand.float32_range(0, 1)
+		fire.max_time = rand.float32_range(0.8, 1.3)
 		fire.size = 1
 	}
 	return &game.campfire
@@ -55,7 +57,7 @@ campfire_update :: proc(cf: ^Campfire, delta: f32) {
 				linalg.smootherstep(0.3, 0.0, f64(fire.lifetime / 2)),
 			) *
 			0.6
-		if fire.lifetime > 1 {
+		if fire.lifetime > fire.max_time {
 			fire.position = {
 				rand.float32_range(
 					cf.position.x - cf.radius * 0.6,
@@ -68,7 +70,7 @@ campfire_update :: proc(cf: ^Campfire, delta: f32) {
 				),
 			}
 			fire.velocity = {0, rand.float32_range(3, 7), 0}
-			fire.lifetime = 0
+			fire.lifetime -= fire.max_time
 
 		}
 	}
@@ -77,7 +79,7 @@ campfire_update :: proc(cf: ^Campfire, delta: f32) {
 campfire_draw :: proc(using cf: ^Campfire) {
 	rl.DrawModel(game.models["camp"], position, 0.1, rl.RED)
 	for fire in particles {
-		rl.DrawCubeV(fire.position, fire.size, {255, 230, 120, 110})
+		rl.DrawCubeV(fire.position, fire.size, {255, 220, 120, 110})
 	}
 
 }
