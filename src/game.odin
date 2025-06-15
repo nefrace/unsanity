@@ -512,19 +512,23 @@ game_draw :: proc(using game: ^Game) {
 				1,
 				rl.WHITE,
 			)
-			text := fmt.ctprintf(
-				"рекорд времени: %02d:%02d\nрекорд убийств: %d\nсделано выстрелов: %d\nточность: %.0f%%\nтаблеток выпито: %d\nсмертей: %d\nбезумий: %d",
-				game.highscore.seconds / 60,
-				game.highscore.seconds % 60,
-				game.highscore.kills,
-				game.highscore.shots,
-				f32(game.highscore.hits) / f32(game.highscore.shots) * 100,
-				game.highscore.pills,
-				game.highscore.death_count,
-				game.highscore.crazy_count,
-			)
-			dimensions := rl.MeasureTextEx(UIFont, text, 14, 1)
-			rl.DrawTextEx(UIFont, text, {10, GameSizeF.y - dimensions.y}, 14, 1, rl.BLACK)
+
+			if game.highscore.shots > 0 {
+				hit_rate := f32(game.highscore.hits) / f32(game.highscore.shots) * 100
+				text := fmt.ctprintf(
+					"рекорд времени: %02d:%02d\nрекорд убийств: %d\nсделано выстрелов: %d\nточность: %.0f%%\nтаблеток выпито: %d\nсмертей: %d\nбезумий: %d",
+					game.highscore.seconds / 60,
+					game.highscore.seconds % 60,
+					game.highscore.kills,
+					game.highscore.shots,
+					hit_rate,
+					game.highscore.pills,
+					game.highscore.death_count,
+					game.highscore.crazy_count,
+				)
+				dimensions := rl.MeasureTextEx(UIFont, text, 14, 1)
+				rl.DrawTextEx(UIFont, text, {10, GameSizeF.y - dimensions.y}, 14, 1, rl.BLACK)
+			}
 		}
 		if pause {
 			draw_text_centered("ПАУЗА", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)

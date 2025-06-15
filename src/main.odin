@@ -23,6 +23,7 @@ UIFont: rl.Font
 FontPath :: "assets/font.ttf"
 
 ShouldQuit := false
+drawfps := false
 
 
 Posterizer: rl.Shader
@@ -137,7 +138,10 @@ main :: proc() {
 			0,
 			rl.WHITE,
 		)
-		rl.DrawFPS(10, 10)
+		if rl.IsKeyPressed(.F1) do drawfps = !drawfps
+		if drawfps {
+			rl.DrawFPS(10, 10)
+		}
 		rl.EndDrawing()
 
 	}
