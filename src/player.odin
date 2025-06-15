@@ -25,6 +25,8 @@ Player :: struct {
 	bobbing:          f32,
 	bobbing_timer:    f32,
 	gun_down:         f32,
+	gun_sway_target:  vec2,
+	gun_sway:         vec2,
 	gun_tween:        ^ease.Flux_Tween(f32),
 	sanity:           f32,
 	shoot_flash:      f32,
@@ -92,9 +94,12 @@ player_die :: proc(using player: ^Player, sound: rl.Sound = sound_death) {
 	_ = ease.flux_to(&game.tweens, &(cam_height), 0.3, .Bounce_Out)
 	_ = ease.flux_to(&game.tweens, &camera_tilt, 1)
 	is_dead = true
+	game.highscore.death_count += 1
+	if is_crazy do game.highscore.crazy_count += 1
 	rl.EnableCursor()
 	rl.PlaySound(sound_death)
 	rl.StopMusicStream(game.music["nbtf"])
+	game_update_highscore(game)
 
 }
 
@@ -125,6 +130,7 @@ player_update :: proc(using player: ^Player, delta: f32) {
 	//
 	if !is_dead {
 		if rl.IsMouseButtonPressed(.LEFT) && shoot_timer <= 0 && reload_timer <= 0 && ammo > 0 {
+			game.highscore.shots += 1
 			ammo -= 1
 			shoot_timer = 0.3
 			shoot_flash = 1
@@ -139,6 +145,27 @@ player_update :: proc(using player: ^Player, delta: f32) {
 
 		look_angles.y -= rl.GetMouseDelta().x * 0.0015
 		look_angles.x += rl.GetMouseDelta().y * 0.0015
+		look_angles.x = clamp(look_angles.x, -linalg.PI / 3, linalg.PI / 3)
+		rot =
+			linalg.quaternion_from_euler_angle_y_f32(look_angles.y) *
+			linalg.quaternion_from_euler_angle_x_f32(look_angles.x)
+
+		gun_sway_target.y = rl.GetMouseDelta().x
+		gun_sway_target.x = rl.GetMouseDelta().y
+
+		gun_sway_diff := gun_sway_target - gun_sway
+		gun_sway_normal := linalg.normalize0(gun_sway_diff)
+		gun_sway_dist := linalg.length2(gun_sway_diff)
+		if gun_sway_dist < 0.001 {
+			gun_sway = gun_sway_target
+		} else {
+			gun_sway += gun_sway_normal * gun_sway_dist * delta * 0.3
+
+		}
+
+
+		forward = linalg.quaternion128_mul_vector3(rot, linalg.Vector3f32{0, 0, 1})
+		right = linalg.quaternion128_mul_vector3(rot, linalg.Vector3f32{1, 0, 0})
 
 		moving := false
 		SPEED :: 30
@@ -198,6 +225,7 @@ player_update :: proc(using player: ^Player, delta: f32) {
 		dist: f32 = linalg.length(diff)
 		if dist < 1 {
 			pill_destroy(&pill)
+			game.highscore.pills += 1
 			rl.PlaySound(pill_sound)
 			game.eyelids_speed = 5
 			game.eyelids_action = .PILLS
@@ -216,8 +244,8 @@ player_draw :: proc(using player: ^Player) {
 	// if reload_timer <= 0 { 	// Revolver
 	rlgl.PushMatrix()
 	rlgl.Translatef(cam.position.x, cam.position.y - bobbing * 0.1, cam.position.z)
-	rlgl.Rotatef(linalg.to_degrees(look_angles.y), 0, 1, 0)
-	rlgl.Rotatef(linalg.to_degrees(look_angles.x), 1, 0, 0)
+	rlgl.Rotatef(linalg.to_degrees(look_angles.y - gun_sway.y * 0.002), 0, 1, 0)
+	rlgl.Rotatef(linalg.to_degrees(look_angles.x + gun_sway.x * 0.002), 1, 0, 0)
 	rlgl.PushMatrix()
 	rlgl.Translatef(-0.3, -0.1, 1.0)
 	rlgl.Rotatef(-90, 1, 0, 0)
@@ -279,6 +307,7 @@ player_shoot :: proc(using player: ^Player) {
 		if nearest != nil && dist > 0 {
 			if nearest.type == Enemy {
 				e := transmute(^Enemy)nearest
+				game.highscore.hits += 1
 				enemy_damage(e, 1)
 			}
 			break

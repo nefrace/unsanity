@@ -62,6 +62,7 @@ Game :: struct {
 	sanity_timer:   f32,
 	spawn_timer:    f32,
 	kills:          int,
+	highscore:      Highscores,
 	trees:          [500]Tree,
 	downfall:       [800]Downfall,
 	grid:           Grid,
@@ -111,6 +112,7 @@ game_start :: proc(using game: ^Game, is_restart: bool = false) {
 	game.player = player_spawn(game, {0, 0, -2})
 	game.timer = 0
 	game.insanity = 0
+	game.kills = 0
 	game.sanity_timer = 0
 	PosterizerValue = max(math.remap(game.insanity, 0.3, 1, 8.0, 2.0), 3)
 	game.spawn_timer = 0
@@ -167,10 +169,12 @@ game_init :: proc() -> ^Game {
 		"assets/shaders/vshader.glsl",
 		"assets/shaders/fshader_blooded.glsl",
 	)
+	game.highscore = highscore_read()
 	game.tweens = ease.flux_init(f32, 16)
 	grid_init(&game.grid)
 	player_init()
 	demon_init_resourecs()
+	// pziz_init_resourecs()
 	pills_init()
 
 	game.meshes["plane"] = rl.GenMeshPlane(500, 500, 250, 250)
@@ -357,8 +361,14 @@ game_update :: proc(using game: ^Game, delta: f32) {
 	// }
 	spawn_timer += delta
 	if spawn_timer > 2 {
+		enemies := 0
+		for &en in enemy_list {
+			if en.health > 0 {
+				enemies += 1
+			}
+		}
 		max_enemies: int = min(2 + int(insanity * 10) + int(timer / 30), 15)
-		if len(enemy_list) < max_enemies {
+		if enemies < max_enemies {
 			demon_spawn(
 				game,
 				player.position +
@@ -479,21 +489,19 @@ game_draw :: proc(using game: ^Game) {
 			rl.DrawCircleLines(GameSize.x / 2, GameSize.y / 2, 5, rl.WHITE)
 			text = fmt.ctprintf("БЕЗУМИЕ: %3.1f%%", insanity * 100)
 			dimensions := rl.MeasureTextEx(UIFont, text, 20, 1)
-			rl.DrawTextEx(UIFont, text, {10, f32(GameSize.y) - dimensions.y - 10}, 20, 1, rl.BLACK)
+			pos := vec2{10, f32(GameSize.y) - dimensions.y - 10}
+			rl.DrawRectangleV(pos, dimensions, rl.BLACK)
+			rl.DrawRectangleV(pos, {dimensions.x * game.insanity, dimensions.y}, rl.RED)
+			rl.DrawTextEx(UIFont, text, pos, 20, 1, rl.WHITE)
 			if player.reload_timer > 0 {
 				text = "ПЕРЕЗАРЯДКА..."
 			} else {
 				text = fmt.ctprintf("%d / 6", player.ammo)
 			}
 			dimensions = rl.MeasureTextEx(UIFont, text, 20, 1)
-			rl.DrawTextEx(
-				UIFont,
-				text,
-				{f32(GameSize.x) - dimensions.x - 10, f32(GameSize.y) - dimensions.y - 10},
-				20,
-				1,
-				rl.BLACK,
-			)
+			pos = {f32(GameSize.x) - dimensions.x - 10, f32(GameSize.y) - dimensions.y - 10}
+			rl.DrawRectangleV(pos, dimensions, rl.BLACK)
+			rl.DrawTextEx(UIFont, text, pos, 20, 1, rl.WHITE)
 		}
 		if !started {
 			draw_text_centered("UnSanity", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
@@ -504,6 +512,19 @@ game_draw :: proc(using game: ^Game) {
 				1,
 				rl.WHITE,
 			)
+			text := fmt.ctprintf(
+				"рекорд времени: %02d:%02d\nрекорд убийств: %d\nсделано выстрелов: %d\nточность: %.0f%%\nтаблеток выпито: %d\nсмертей: %d\nбезумий: %d",
+				game.highscore.seconds / 60,
+				game.highscore.seconds % 60,
+				game.highscore.kills,
+				game.highscore.shots,
+				f32(game.highscore.hits) / f32(game.highscore.shots) * 100,
+				game.highscore.pills,
+				game.highscore.death_count,
+				game.highscore.crazy_count,
+			)
+			dimensions := rl.MeasureTextEx(UIFont, text, 14, 1)
+			rl.DrawTextEx(UIFont, text, {10, GameSizeF.y - dimensions.y}, 14, 1, rl.BLACK)
 		}
 		if pause {
 			draw_text_centered("ПАУЗА", {GameSizeF.x / 2, 60}, 30, 3, rl.WHITE)
@@ -541,9 +562,18 @@ game_draw :: proc(using game: ^Game) {
 			fmt.ctprintf("%02d:%02d", minutes, seconds),
 			{GameSizeF.x / 2, 30},
 			16,
-			3,
+			1,
 			rl.WHITE,
 		)
+		if player.is_dead {
+			draw_text_centered(
+				fmt.ctprintf("Убито: %d", kills),
+				{GameSizeF.x / 2, 60},
+				16,
+				1,
+				rl.WHITE,
+			)
+		}
 	}
 
 	rl.DrawRectangleV({}, {f32(GameSize.x), f32(GameSize.y) / 2 * eyelids_closed}, rl.BLACK)
@@ -565,6 +595,17 @@ draw_text_centered :: proc(
 	dimensions := rl.MeasureTextEx(UIFont, text, size, spacing)
 	rl.DrawTextEx(UIFont, text, position - dimensions / 2, size, spacing, color)
 
+}
+
+game_update_highscore :: proc(game: ^Game) {
+	seconds := int(game.timer)
+	if seconds > game.highscore.seconds {
+		game.highscore.seconds = seconds
+	}
+	if game.kills > game.highscore.kills {
+		game.highscore.kills = game.kills
+	}
+	highscore_write(game.highscore)
 }
 
 game_free :: proc(game: ^Game) {

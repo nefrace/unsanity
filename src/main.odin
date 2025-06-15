@@ -92,7 +92,8 @@ main :: proc() {
 	defer rl.UnloadShader(Posterizer)
 
 	TitleFont = rl.LoadFontEx(FontPath, 40, raw_data(codepoints[:]), i32(len(codepoints)))
-	UIFont = rl.LoadFontEx(FontPath, 40, raw_data(codepoints[:]), i32(len(codepoints)))
+	UIFont = rl.LoadFontEx(FontPath, 30, raw_data(codepoints[:]), i32(len(codepoints)))
+	rl.SetTextureFilter(UIFont.texture, .TRILINEAR)
 
 	game := game_init()
 	defer game_free(game)

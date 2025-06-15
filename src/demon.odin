@@ -108,6 +108,7 @@ demon_update :: proc(enemy: ^Enemy, delta: f32) {
 	rl.SetSoundVolume(demon.sound_hit, volume)
 
 	if health <= 0 && state != .DEAD {
+		game.kills += 1
 		state = .DEAD
 		frame = 0
 		grid_remove(&game.grid, demon)
